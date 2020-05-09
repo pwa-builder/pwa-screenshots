@@ -7,7 +7,10 @@ const iPhone = puppeteer.devices['iPhone 6'];
 
 router.post('/post', async function(request: express.Request, response: express.Response){ 
     console.log((request.query.url));
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox']
+    });
 
     const page = await browser.newPage();
    
