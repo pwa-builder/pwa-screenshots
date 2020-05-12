@@ -30,7 +30,6 @@ router.post('/post', async function (
       '.png'
     );
     output.on('close', () => {
-      response.setHeader('content-type', 'application/zip');
       response.sendFile(zippedFilename);
     });
     console.log('REached 1');
