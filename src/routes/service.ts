@@ -74,6 +74,7 @@ async function generateScreenshots(
   await page.screenshot({ path: pathToPhoneScreenshot, fullPage: true });
 
   console.log(await page.title());
+  console.log('Reached here after title');
   await browser.close();
 }
 async function createTemporaryFile(filename, extension) {
