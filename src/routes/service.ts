@@ -20,6 +20,7 @@ router.post('/post', async function (
   try {
     const zippedFilename = await createTemporaryFile('screenshots', '.zip');
     const output = fs.createWriteStream(zippedFilename);
+    console.log('REached 0');
     const screenshotFullScreen = await createTemporaryFile(
       'screenshotFullScreen',
       '.png'
@@ -28,20 +29,22 @@ router.post('/post', async function (
       'screenshotPhone',
       '.png'
     );
+    output.on('close', () => {
+      response.setHeader('content-type', 'application/zip');
+      response.sendFile(zippedFilename);
+    });
+    console.log('REached 1');
     await generateScreenshots(
       request.query.url,
       screenshotFullScreen,
       screenshotPhone
     );
     archive.pipe(output);
+    console.log('REached 2');
     archive.file(screenshotFullScreen, { name: 'screenshotFullScreen.png' });
     archive.file(screenshotPhone, { name: 'screenshotPhone.png' });
     archive.finalize();
     console.log('REached the end');
-    output.on('close', () => {
-      response.setHeader('content-type', 'application/zip');
-      response.sendFile(zippedFilename);
-    });
   } catch (err) {
     console.log('Error generating screenshots', err);
     response.status(500).send('Error generating screenshots: ' + err);
