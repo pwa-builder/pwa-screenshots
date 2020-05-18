@@ -17,7 +17,10 @@
     "puppeteer": "^3.0.4",
     "archiver": "^4.0.1",
     "fs": "",
-    "tmp": ""
+    "tmp": "",
+    "cors": "^2.8.5",
+    "node-vibrant": "^3.1.5",
+    "body-parser": ""
   },
   "dependencies": {
     "express": "^4.17.1"

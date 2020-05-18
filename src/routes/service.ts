@@ -6,49 +6,81 @@ const archiver = require('archiver');
 const router = express.Router();
 const puppeteer = require('puppeteer');
 const iPhone = puppeteer.devices['iPhone 6'];
-
-router.post('/post', async function (
+const Vibrant = require('node-vibrant');
+const bodyParser = require('body-parser').json();
+router.get('/getColorScheme', async function (
   request: express.Request,
   response: express.Response
 ) {
-  console.log(request.query.url);
-
+  const tempFilename = await createTemporaryFile('screenshot', '.png');
+  await generateScreenshots(request.query.url, tempFilename, undefined);
+  var palette = await getDominantColors(tempFilename);
+  console.log(palette);
+  response.setHeader('Content-Type', 'application/json');
+  response.end(JSON.stringify(palette));
+});
+router.post('/post', bodyParser, async function (
+  request: express.Request,
+  response: express.Response
+) {
+  console.log(request.body.url);
+  const urlArray = await getValidatedUrls(request.body.url);
+  console.log(urlArray);
   const archive = archiver('zip', {
     zlib: { level: 9 }, // Sets the compression level.
   });
-
+  //Create the zipped file
+  const zippedFilename = await createTemporaryFile('screenshots', '.zip');
+  //Create an output write stream
+  const output = fs.createWriteStream(zippedFilename);
+  archive.pipe(output);
   try {
-    const zippedFilename = await createTemporaryFile('screenshots', '.zip');
-    const output = fs.createWriteStream(zippedFilename);
-    console.log('REached 0');
-    const screenshotFullScreen = await createTemporaryFile(
-      'screenshotFullScreen',
-      '.png'
-    );
-    const screenshotPhone = await createTemporaryFile(
-      'screenshotPhone',
-      '.png'
-    );
+    for (var i = 0; i < urlArray.length; i++) {
+      //If no. of urls is equal to 1, no need to append number to file name
+      var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
+      const screenshotFullScreen = await createTemporaryFile(
+        'screenshotFullScreen' + pageNumber,
+        '.png'
+      );
+      const screenshotPhone = await createTemporaryFile(
+        'screenshotPhone' + pageNumber,
+        '.png'
+      );
+      //Generate screenshots for URL
+      await generateScreenshots(
+        urlArray[i],
+        screenshotFullScreen,
+        screenshotPhone
+      );
+      //Add generated files to zipped file
+      archive.file(screenshotFullScreen, {
+        name: 'screenshotFullScreen' + pageNumber + '.png',
+      });
+      archive.file(screenshotPhone, {
+        name: 'screenshotPhone' + pageNumber + '.png',
+      });
+    }
     output.on('close', () => {
-      response.sendFile(zippedFilename);
+      response.setHeader('content-type', 'application/zip');
+      response.download(zippedFilename);
     });
-    console.log('REached 1');
-    await generateScreenshots(
-      request.query.url,
-      screenshotFullScreen,
-      screenshotPhone
-    );
-    archive.pipe(output);
-    console.log('REached 2');
-    archive.file(screenshotFullScreen, { name: 'screenshotFullScreen.png' });
-    archive.file(screenshotPhone, { name: 'screenshotPhone.png' });
     archive.finalize();
-    console.log('REached the end');
   } catch (err) {
     console.log('Error generating screenshots', err);
     response.status(500).send('Error generating screenshots: ' + err);
   }
 });
+
+async function getValidatedUrls(urlArray: Array<string>) {
+  return urlArray.map((url) => {
+    if (url) {
+      if (!url.startsWith('http')) {
+        url = 'https://' + url;
+      }
+    }
+    return url;
+  });
+}
 
 async function generateScreenshots(
   url,
@@ -68,12 +100,13 @@ async function generateScreenshots(
   } catch (err) {
     console.log('Check URL', err);
   }
-  await page.screenshot({ path: pathToFullPageScreenshot, fullPage: true });
-  await page.emulate(iPhone);
-  await page.screenshot({ path: pathToPhoneScreenshot, fullPage: true });
+  await page.screenshot({ path: pathToFullPageScreenshot, fullPage: false });
+  if (pathToPhoneScreenshot != undefined) {
+    await page.emulate(iPhone);
 
+    await page.screenshot({ path: pathToPhoneScreenshot, fullPage: false });
+  }
   console.log(await page.title());
-  console.log('Reached here after title');
   await browser.close();
 }
 async function createTemporaryFile(filename, extension) {
@@ -82,5 +115,10 @@ async function createTemporaryFile(filename, extension) {
     postfix: extension,
   });
 }
+async function getDominantColors(pathToFullPageScreenshot) {
+  console.log(pathToFullPageScreenshot);
+  var palette = await Vibrant.from(pathToFullPageScreenshot).getPalette();
 
+  return palette;
+}
 module.exports = router;
