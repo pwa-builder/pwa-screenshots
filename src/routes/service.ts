@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { json } from 'express';
 import * as path from 'path';
 const fs = require('fs');
 const tmp = require('tmp');
@@ -8,6 +8,7 @@ const puppeteer = require('puppeteer');
 const iPhone = puppeteer.devices['iPhone 6'];
 const Vibrant = require('node-vibrant');
 const bodyParser = require('body-parser').json();
+const sizeOf = require('image-size');
 router.get('/getColorScheme', async function (
   request: express.Request,
   response: express.Response
@@ -61,8 +62,8 @@ router.post('/post', bodyParser, async function (
       });
     }
     output.on('close', () => {
-      response.setHeader('content-type', 'application/zip');
-      response.download(zippedFilename);
+      response.setHeader('Content-Disposition', 'filename="screenshots.zip"');
+      response.sendFile(zippedFilename);
     });
     archive.finalize();
   } catch (err) {
@@ -71,6 +72,113 @@ router.post('/post', bodyParser, async function (
   }
 });
 
+//Return screenshots as an array of blobs
+router.post('/screenshotsAsBlobs', bodyParser, async function (
+  request: express.Request,
+  response: express.Response
+) {
+  console.log(request.body.url);
+  const urlArray = await getValidatedUrls(request.body.url);
+  console.log(urlArray);
+
+  let blobArray: Blob[] = [];
+
+  try {
+    for (var i = 0; i < urlArray.length; i++) {
+      //If no. of urls is equal to 1, no need to append number to file name
+      var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
+      const screenshotFullScreen = await createTemporaryFile(
+        'screenshotFullScreen' + pageNumber,
+        '.png'
+      );
+      const screenshotPhone = await createTemporaryFile(
+        'screenshotPhone' + pageNumber,
+        '.png'
+      );
+      //Generate screenshots for URL
+      await generateScreenshots(
+        urlArray[i],
+        screenshotFullScreen,
+        screenshotPhone
+      );
+      let buffFullScreen = fs.readFileSync(screenshotFullScreen);
+      let buffPhone = fs.readFileSync(screenshotPhone);
+      blobArray.push(buffFullScreen);
+      blobArray.push(buffPhone);
+      //files.push(screenshotFullScreen);
+      //files.push(screenshotPhone);
+    }
+    response.setHeader('Content-Type', 'application/json');
+    response.send(JSON.stringify(blobArray));
+  } catch (err) {
+    console.log('Error generating screenshots', err);
+    response.status(500).send('Error generating screenshots: ' + err);
+  }
+});
+
+//Return screenshots as an array of Base64 encoded strings
+router.post('/screenshotsAsBase64Strings', bodyParser, async function (
+  request: express.Request,
+  response: express.Response
+) {
+  console.log(request.body.url);
+  const urlArray = await getValidatedUrls(request.body.url);
+  console.log(urlArray);
+
+  var resultObject = {};
+  resultObject['images'] = [];
+
+  try {
+    for (var i = 0; i < urlArray.length; i++) {
+      //If no. of urls is equal to 1, no need to append number to file name
+      var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
+      const screenshotFullScreen = await createTemporaryFile(
+        'screenshotFullScreen' + pageNumber,
+        '.png'
+      );
+      const screenshotPhone = await createTemporaryFile(
+        'screenshotPhone' + pageNumber,
+        '.png'
+      );
+      //Generate screenshots for URL
+      await generateScreenshots(
+        urlArray[i],
+        screenshotFullScreen,
+        screenshotPhone
+      );
+      let screenshotFullScreenDims = await getImageDims(screenshotFullScreen);
+      let screenshotPhoneDims = await getImageDims(screenshotPhone);
+      let buffFullScreen = fs.readFileSync(screenshotFullScreen);
+      let base64dataFullScreen = buffFullScreen.toString('base64');
+      let buffPhone = fs.readFileSync(screenshotPhone);
+      let base64dataPhone = buffPhone.toString('base64');
+      let fullScreenObject = {
+        src: base64dataFullScreen,
+        sizes:
+          screenshotFullScreenDims.width +
+          'x' +
+          screenshotFullScreenDims.height,
+        type: 'image/' + screenshotFullScreenDims.type,
+      };
+      let phoneObject = {
+        src: base64dataPhone,
+        sizes: screenshotPhoneDims.width + 'x' + screenshotPhoneDims.height,
+        type: 'image/' + screenshotPhoneDims.type,
+      };
+      resultObject['images'].push(fullScreenObject);
+      resultObject['images'].push(phoneObject);
+      //files.push(screenshotFullScreen);
+      //files.push(screenshotPhone);
+    }
+    response.setHeader('Content-Type', 'application/json');
+    response.json(resultObject);
+  } catch (err) {
+    console.log('Error generating screenshots', err);
+    response.status(500).send('Error generating screenshots: ' + err);
+  }
+});
+
+//Add protocol to the URL if not provided
 async function getValidatedUrls(urlArray: Array<string>) {
   return urlArray.map((url) => {
     if (url) {
@@ -96,9 +204,9 @@ async function generateScreenshots(
 
   try {
     await page.setViewport({ width: 1280, height: 800 });
-    await page.goto(url);
+    await page.goto(url, { waitUntil: 'networkidle0' });
   } catch (err) {
-    console.log('Check URL', err);
+    console.log('Check URL here', err);
   }
   await page.screenshot({ path: pathToFullPageScreenshot, fullPage: false });
   if (pathToPhoneScreenshot != undefined) {
@@ -122,3 +230,9 @@ async function getDominantColors(pathToFullPageScreenshot) {
   return palette;
 }
 module.exports = router;
+
+async function getImageDims(pathToImage) {
+  var dimensions = await sizeOf(pathToImage);
+  console.log(dimensions);
+  return dimensions;
+}
