@@ -7,7 +7,7 @@ const router = express.Router();
 const puppeteer = require('puppeteer');
 const iPhone = puppeteer.devices['iPhone 6'];
 const Vibrant = require('node-vibrant');
-const bodyParser = require('body-parser').json();
+const bodyParser = require('body-parser').json({ limit: '20mb' });
 const sizeOf = require('image-size');
 router.get('/getColorScheme', async function (
   request: express.Request,
@@ -25,7 +25,7 @@ router.post('/post', bodyParser, async function (
   response: express.Response
 ) {
   console.log(request.body.url);
-  const urlArray = await getValidatedUrls(request.body.url);
+  const urlArray = getValidatedUrls(request.body.url);
   console.log(urlArray);
   const archive = archiver('zip', {
     zlib: { level: 9 }, // Sets the compression level.
@@ -78,7 +78,7 @@ router.post('/screenshotsAsBlobs', bodyParser, async function (
   response: express.Response
 ) {
   console.log(request.body.url);
-  const urlArray = await getValidatedUrls(request.body.url);
+  const urlArray = getValidatedUrls(request.body.url);
   console.log(urlArray);
 
   let blobArray: Blob[] = [];
@@ -116,13 +116,94 @@ router.post('/screenshotsAsBlobs', bodyParser, async function (
   }
 });
 
-//Return screenshots as an array of Base64 encoded strings
+router.post('/downloadScreenshotsZipFile', bodyParser, async function (
+  request: express.Request,
+  response: express.Response
+) {
+  const archive = archiver('zip', {
+    zlib: { level: 9 }, // Sets the compression level.
+  });
+  //Create the zipped file
+  const zippedFilename = await createTemporaryFile('screenshots', '.zip');
+  //Create an output write stream
+  const output = fs.createWriteStream(zippedFilename);
+  archive.pipe(output);
+  var screenshotImages = request.body;
+
+  for (var i = 0; i < screenshotImages.length; i++) {
+    let buffer = new Buffer(screenshotImages[i].src);
+    let file = await createTemporaryFile(
+      'screenshot' + (i + 1).toString(),
+      '.png'
+    );
+    fs.writeFileSync(file, '.png', buffer);
+    archive.file(file, {
+      name: 'screenshot' + (i + 1) + '.png',
+    });
+  }
+  output.on('close', () => {
+    response.setHeader('Content-Disposition', 'filename="screenshots.zip"');
+    response.sendFile(zippedFilename);
+  });
+  archive.finalize();
+});
+//For standalone tool
+router.post(
+  '/screenshotsAsBase64StringWithOptions',
+  bodyParser,
+  async function (request: express.Request, response: express.Response) {
+    var screenshotObjects = request.body;
+    console.log(screenshotObjects);
+    var resultObject = {};
+    resultObject['images'] = [];
+    try {
+      for (var i = 0; i < screenshotObjects.length; i++) {
+        var pageNumber = screenshotObjects.length > 1 ? (i + 1).toString() : '';
+        const screenshotFullScreen = screenshotObjects[i].desktop
+          ? await createTemporaryFile(
+              'screenshotFullScreen' + pageNumber,
+              '.png'
+            )
+          : undefined;
+
+        const screenshotPhone = screenshotObjects[i].mobile
+          ? await createTemporaryFile('screenshotPhone' + pageNumber, '.png')
+          : undefined;
+        screenshotObjects[i].url = await validateUrl(screenshotObjects[i].url);
+        console.log(screenshotFullScreen, screenshotPhone);
+        await generateScreenshots(
+          screenshotObjects[i].url,
+          screenshotFullScreen,
+          screenshotPhone
+        );
+        console.log('TYPE OF', typeof screenshotObjects[i].desktop);
+        if (screenshotObjects[i].desktop) {
+          resultObject['images'].push(
+            await getScreenshotDetails(screenshotFullScreen)
+          );
+        }
+        if (screenshotObjects[i].mobile) {
+          resultObject['images'].push(
+            await getScreenshotDetails(screenshotPhone)
+          );
+        }
+      }
+      response.setHeader('Content-Type', 'application/json');
+      response.json(resultObject);
+    } catch (err) {
+      console.log('Error generating screenshots', err);
+      response.status(500).send('Error generating screenshots: ' + err);
+    }
+  }
+);
+
+//Return screenshots as an array of Base64 encoded strings for PWABuilder website
 router.post('/screenshotsAsBase64Strings', bodyParser, async function (
   request: express.Request,
   response: express.Response
 ) {
   console.log(request.body.url);
-  const urlArray = await getValidatedUrls(request.body.url);
+  const urlArray = getValidatedUrls(request.body.url);
   console.log(urlArray);
 
   var resultObject = {};
@@ -179,21 +260,24 @@ router.post('/screenshotsAsBase64Strings', bodyParser, async function (
 });
 
 //Add protocol to the URL if not provided
-async function getValidatedUrls(urlArray: Array<string>) {
+function getValidatedUrls(urlArray: Array<string>) {
   return urlArray.map((url) => {
-    if (url) {
-      if (!url.startsWith('http')) {
-        url = 'https://' + url;
-      }
-    }
-    return url;
+    return validateUrl(url);
   });
 }
 
+function validateUrl(url: string) {
+  if (url) {
+    if (!url.startsWith('http')) {
+      url = 'https://' + url;
+    }
+  }
+  return url;
+}
 async function generateScreenshots(
   url,
-  pathToFullPageScreenshot,
-  pathToPhoneScreenshot
+  pathToFullPageScreenshot?,
+  pathToPhoneScreenshot?
 ) {
   const browser = await puppeteer.launch({
     headless: true,
@@ -208,8 +292,12 @@ async function generateScreenshots(
   } catch (err) {
     console.log('Check URL here', err);
   }
-  await page.screenshot({ path: pathToFullPageScreenshot, fullPage: false });
-  if (pathToPhoneScreenshot != undefined) {
+  if (pathToFullPageScreenshot !== undefined) {
+    console.log('Full page not undefined');
+    await page.screenshot({ path: pathToFullPageScreenshot, fullPage: false });
+  }
+  if (pathToPhoneScreenshot !== undefined) {
+    console.log('Mobile not undefined');
     await page.emulate(iPhone);
 
     await page.screenshot({ path: pathToPhoneScreenshot, fullPage: false });
@@ -229,10 +317,38 @@ async function getDominantColors(pathToFullPageScreenshot) {
 
   return palette;
 }
-module.exports = router;
+
+async function getScreenshotDetails(pathToImage) {
+  console.log(pathToImage);
+  let dims = await getImageDims(pathToImage);
+  console.log('DIMS', dims);
+  let buff = fs.readFileSync(pathToImage);
+  let base64data = 'data:image/png;base64, ' + buff.toString('base64');
+  return {
+    src: base64data,
+    sizes: dims.width + 'x' + dims.height,
+    type: 'image/' + dims.type,
+  };
+}
 
 async function getImageDims(pathToImage) {
   var dimensions = await sizeOf(pathToImage);
   console.log(dimensions);
   return dimensions;
 }
+
+async function generateZipFile(output, listOfFiles) {
+  const archive = archiver('zip', {
+    zlib: { level: 9 }, // Sets the compression level.
+  });
+  archive.pipe(output);
+  try {
+    for (var i = 0; i < listOfFiles.length; i++) {
+      archive.file(listOfFiles[i], {
+        name: 'screenshot' + (i + 1) + '.png',
+      });
+    }
+  } catch (err) {}
+  archive.finalize();
+}
+module.exports = router;
