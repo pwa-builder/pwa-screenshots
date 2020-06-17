@@ -202,61 +202,59 @@ router.post('/screenshotsAsBase64Strings', bodyParser, async function (
   request: express.Request,
   response: express.Response
 ) {
-  console.log(request.body.url);
-  const urlArray = getValidatedUrls(request.body.url);
-  console.log(urlArray);
-
-  var resultObject = {};
-  resultObject['images'] = [];
-
-  try {
-    for (var i = 0; i < urlArray.length; i++) {
-      //If no. of urls is equal to 1, no need to append number to file name
-      var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
-      const screenshotFullScreen = await createTemporaryFile(
-        'screenshotFullScreen' + pageNumber,
-        '.png'
-      );
-      const screenshotPhone = await createTemporaryFile(
-        'screenshotPhone' + pageNumber,
-        '.png'
-      );
-      //Generate screenshots for URL
-      await generateScreenshots(
-        urlArray[i],
-        screenshotFullScreen,
-        screenshotPhone
-      );
-      let screenshotFullScreenDims = await getImageDims(screenshotFullScreen);
-      let screenshotPhoneDims = await getImageDims(screenshotPhone);
-      let buffFullScreen = fs.readFileSync(screenshotFullScreen);
-      let base64dataFullScreen = buffFullScreen.toString('base64');
-      let buffPhone = fs.readFileSync(screenshotPhone);
-      let base64dataPhone = buffPhone.toString('base64');
-      let fullScreenObject = {
-        src: base64dataFullScreen,
-        sizes:
-          screenshotFullScreenDims.width +
-          'x' +
-          screenshotFullScreenDims.height,
-        type: 'image/' + screenshotFullScreenDims.type,
-      };
-      let phoneObject = {
-        src: base64dataPhone,
-        sizes: screenshotPhoneDims.width + 'x' + screenshotPhoneDims.height,
-        type: 'image/' + screenshotPhoneDims.type,
-      };
-      resultObject['images'].push(fullScreenObject);
-      resultObject['images'].push(phoneObject);
-      //files.push(screenshotFullScreen);
-      //files.push(screenshotPhone);
-    }
-    response.setHeader('Content-Type', 'application/json');
-    response.json(resultObject);
-  } catch (err) {
-    console.log('Error generating screenshots', err);
-    response.status(500).send('Error generating screenshots: ' + err);
-  }
+  // console.log(request.body.url);
+  // const urlArray = getValidatedUrls(request.body.url);
+  // console.log(urlArray);
+  // var resultObject = {};
+  // resultObject['images'] = [];
+  // try {
+  //   for (var i = 0; i < urlArray.length; i++) {
+  //     //If no. of urls is equal to 1, no need to append number to file name
+  //     var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
+  //     const screenshotFullScreen = await createTemporaryFile(
+  //       'screenshotFullScreen' + pageNumber,
+  //       '.png'
+  //     );
+  //     const screenshotPhone = await createTemporaryFile(
+  //       'screenshotPhone' + pageNumber,
+  //       '.png'
+  //     );
+  //     //Generate screenshots for URL
+  //     await generateScreenshots(
+  //       urlArray[i],
+  //       screenshotFullScreen,
+  //       screenshotPhone
+  //     );
+  //     let screenshotFullScreenDims = await getImageDims(screenshotFullScreen);
+  //     let screenshotPhoneDims = await getImageDims(screenshotPhone);
+  //     let buffFullScreen = fs.readFileSync(screenshotFullScreen);
+  //     let base64dataFullScreen = buffFullScreen.toString('base64');
+  //     let buffPhone = fs.readFileSync(screenshotPhone);
+  //     let base64dataPhone = buffPhone.toString('base64');
+  //     let fullScreenObject = {
+  //       src: base64dataFullScreen,
+  //       sizes:
+  //         screenshotFullScreenDims.width +
+  //         'x' +
+  //         screenshotFullScreenDims.height,
+  //       type: 'image/' + screenshotFullScreenDims.type,
+  //     };
+  //     let phoneObject = {
+  //       src: base64dataPhone,
+  //       sizes: screenshotPhoneDims.width + 'x' + screenshotPhoneDims.height,
+  //       type: 'image/' + screenshotPhoneDims.type,
+  //     };
+  //     resultObject['images'].push(fullScreenObject);
+  //     resultObject['images'].push(phoneObject);
+  //     //files.push(screenshotFullScreen);
+  //     //files.push(screenshotPhone);
+  //   }
+  //   response.setHeader('Content-Type', 'application/json');
+  //   response.json(resultObject);
+  // } catch (err) {
+  //   console.log('Error generating screenshots', err);
+  //   response.status(500).send('Error generating screenshots: ' + err);
+  // }
 });
 
 //Add protocol to the URL if not provided
@@ -291,7 +289,6 @@ async function generateScreenshots(
     await page.goto(url, { waitUntil: 'networkidle0' });
   } catch (err) {
     console.log('Check URL here', err);
-    console.log('URL', url);
   }
   if (pathToFullPageScreenshot !== undefined) {
     console.log('Full page not undefined');
