@@ -291,6 +291,7 @@ async function generateScreenshots(
     await page.goto(url, { waitUntil: 'networkidle0' });
   } catch (err) {
     console.log('Check URL here', err);
+    console.log('URL', url);
   }
   if (pathToFullPageScreenshot !== undefined) {
     console.log('Full page not undefined');
