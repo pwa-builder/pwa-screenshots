@@ -288,7 +288,8 @@ async function generateScreenshots(
 
   try {
     await page.setViewport({ width: 1280, height: 800 });
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await page.setDefaultNavigationTimeout(0);
+    await page.goto(url, { waitUntil: 'networkidle2' });
   } catch (err) {
     console.log('Check URL here', err);
   }
