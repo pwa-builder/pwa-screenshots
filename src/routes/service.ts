@@ -288,7 +288,7 @@ async function generateScreenshots(
 
   try {
     await page.setViewport({ width: 1280, height: 800 });
-    await page.goto(url, { waitUntil: 'networkidle2' });
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
   } catch (err) {
     console.log('Check URL here', err);
   }
