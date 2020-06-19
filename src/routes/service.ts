@@ -288,10 +288,11 @@ async function generateScreenshots(
 
   try {
     await page.setViewport({ width: 1280, height: 800 });
-    await page.setDefaultNavigationTimeout(0);
+    await page.setDefaultNavigationTimeout(120000);
     await page.goto(url, { waitUntil: 'networkidle2' });
   } catch (err) {
     console.log('Check URL here', err);
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
   }
   if (pathToFullPageScreenshot !== undefined) {
     console.log('Full page not undefined');
