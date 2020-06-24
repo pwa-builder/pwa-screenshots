@@ -147,6 +147,7 @@ router.post('/downloadScreenshotsZipFile', bodyParser, async function (
   });
   archive.finalize();
 });
+
 //For standalone tool
 router.post(
   '/screenshotsAsBase64StringWithOptions',
@@ -288,8 +289,8 @@ async function generateScreenshots(
 
   try {
     await page.setViewport({ width: 1280, height: 800 });
-    await page.setDefaultNavigationTimeout(120000);
-    await page.goto(url, { waitUntil: 'networkidle0' });
+    await page.setDefaultNavigationTimeout(0);
+    await page.goto(url, { waitUntil: 'networkidle2' });
   } catch (err) {
     console.log('Check URL here', err);
     await page.goto(url, { waitUntil: 'domcontentloaded' });
@@ -301,7 +302,7 @@ async function generateScreenshots(
   if (pathToPhoneScreenshot !== undefined) {
     console.log('Mobile not undefined');
     await page.emulate(iPhone);
-
+    await page.goto(url, { waitUntil: 'networkidle2' });
     await page.screenshot({ path: pathToPhoneScreenshot, fullPage: false });
   }
   console.log(await page.title());
