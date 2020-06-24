@@ -20,6 +20,7 @@ router.get('/getColorScheme', async function (
   response.setHeader('Content-Type', 'application/json');
   response.end(JSON.stringify(palette));
 });
+
 router.post('/post', bodyParser, async function (
   request: express.Request,
   response: express.Response
@@ -72,50 +73,7 @@ router.post('/post', bodyParser, async function (
   }
 });
 
-//Return screenshots as an array of blobs
-router.post('/screenshotsAsBlobs', bodyParser, async function (
-  request: express.Request,
-  response: express.Response
-) {
-  console.log(request.body.url);
-  const urlArray = getValidatedUrls(request.body.url);
-  console.log(urlArray);
-
-  let blobArray: Blob[] = [];
-
-  try {
-    for (var i = 0; i < urlArray.length; i++) {
-      //If no. of urls is equal to 1, no need to append number to file name
-      var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
-      const screenshotFullScreen = await createTemporaryFile(
-        'screenshotFullScreen' + pageNumber,
-        '.png'
-      );
-      const screenshotPhone = await createTemporaryFile(
-        'screenshotPhone' + pageNumber,
-        '.png'
-      );
-      //Generate screenshots for URL
-      await generateScreenshots(
-        urlArray[i],
-        screenshotFullScreen,
-        screenshotPhone
-      );
-      let buffFullScreen = fs.readFileSync(screenshotFullScreen);
-      let buffPhone = fs.readFileSync(screenshotPhone);
-      blobArray.push(buffFullScreen);
-      blobArray.push(buffPhone);
-      //files.push(screenshotFullScreen);
-      //files.push(screenshotPhone);
-    }
-    response.setHeader('Content-Type', 'application/json');
-    response.send(JSON.stringify(blobArray));
-  } catch (err) {
-    console.log('Error generating screenshots', err);
-    response.status(500).send('Error generating screenshots: ' + err);
-  }
-});
-
+//Returns Zipped file of screenshots
 router.post('/downloadScreenshotsZipFile', bodyParser, async function (
   request: express.Request,
   response: express.Response
@@ -289,7 +247,7 @@ async function generateScreenshots(
 
   try {
     await page.setViewport({ width: 1280, height: 800 });
-    await page.setDefaultNavigationTimeout(0);
+    await page.setDefaultNavigationTimeout(120000);
     await page.goto(url, { waitUntil: 'networkidle2' });
   } catch (err) {
     console.log('Check URL here', err);
