@@ -4,6 +4,7 @@ import puppeteer from 'puppeteer';
 import tmp from 'tmp';
 import archiver from 'archiver';
 import Vibrant from 'node-vibrant';
+import { launchBrowser } from '../utils/puppeteer';
 
 const sizeOf = require('image-size');
 const iPhone = puppeteer.devices['iPhone 6'];
@@ -26,18 +27,19 @@ router.post('/post', bodyParser, async function (
   request: express.Request,
   response: express.Response
 ) {
-  console.log(request.body.url);
-  const urlArray = getValidatedUrls(request.body.url);
-  console.log(urlArray);
-  const archive = archiver('zip', {
-    zlib: { level: 9 }, // Sets the compression level.
-  });
-  //Create the zipped file
-  const zippedFilename = await createTemporaryFile('screenshots', '.zip');
-  //Create an output write stream
-  const output = fs.createWriteStream(zippedFilename);
-  archive.pipe(output);
   try {
+    console.log(request.body.url);
+    const urlArray = getValidatedUrls(request.body.url);
+    console.log(urlArray);
+    const archive = archiver('zip', {
+      zlib: { level: 9 }, // Sets the compression level.
+    });
+    //Create the zipped file
+    const zippedFilename = await createTemporaryFile('screenshots', '.zip');
+    //Create an output write stream
+    const output = fs.createWriteStream(zippedFilename);
+    archive.pipe(output);
+
     for (var i = 0; i < urlArray.length; i++) {
       //If no. of urls is equal to 1, no need to append number to file name
       var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
@@ -79,32 +81,36 @@ router.post('/downloadScreenshotsZipFile', bodyParser, async function (
   request: express.Request,
   response: express.Response
 ) {
-  const archive = archiver('zip', {
-    zlib: { level: 9 }, // Sets the compression level.
-  });
-  //Create the zipped file
-  const zippedFilename = await createTemporaryFile('screenshots', '.zip');
-  //Create an output write stream
-  const output = fs.createWriteStream(zippedFilename);
-  archive.pipe(output);
-  var screenshotImages = request.body;
-
-  for (var i = 0; i < screenshotImages.length; i++) {
-    let buffer = new Buffer(screenshotImages[i].src);
-    let file = await createTemporaryFile(
-      'screenshot' + (i + 1).toString(),
-      '.png'
-    );
-    fs.writeFileSync(file, '.png', buffer.toString('utf8'));
-    archive.file(file, {
-      name: 'screenshot' + (i + 1) + '.png',
+  try {
+      const archive = archiver('zip', {
+      zlib: { level: 9 }, // Sets the compression level.
     });
+    //Create the zipped file
+    const zippedFilename = await createTemporaryFile('screenshots', '.zip');
+    //Create an output write stream
+    const output = fs.createWriteStream(zippedFilename);
+    archive.pipe(output);
+    var screenshotImages = request.body;
+
+    for (var i = 0; i < screenshotImages.length; i++) {
+      let buffer = new Buffer(screenshotImages[i].src);
+      let file = await createTemporaryFile(
+        'screenshot' + (i + 1).toString(),
+        '.png'
+      );
+      fs.writeFileSync(file, '.png', buffer.toString('utf8'));
+      archive.file(file, {
+        name: 'screenshot' + (i + 1) + '.png',
+      });
+    }
+    output.on('close', () => {
+      response.setHeader('Content-Disposition', 'filename="screenshots.zip"');
+      response.sendFile(zippedFilename);
+    });
+    archive.finalize();
+  } catch (e) {
+    console.error(e);
   }
-  output.on('close', () => {
-    response.setHeader('Content-Disposition', 'filename="screenshots.zip"');
-    response.sendFile(zippedFilename);
-  });
-  archive.finalize();
 });
 
 //For standalone tool
@@ -112,11 +118,12 @@ router.post(
   '/screenshotsAsBase64StringWithOptions',
   bodyParser,
   async function (request: express.Request, response: express.Response) {
-    var screenshotObjects = request.body;
-    console.log(screenshotObjects);
-    var resultObject = {};
-    resultObject['images'] = [];
     try {
+      var screenshotObjects = request.body;
+      console.log(screenshotObjects);
+      var resultObject = {};
+      resultObject['images'] = [];
+
       for (var i = 0; i < screenshotObjects.length; i++) {
         var pageNumber = screenshotObjects.length > 1 ? (i + 1).toString() : '';
         const screenshotFullScreen = screenshotObjects[i].desktop
@@ -162,14 +169,14 @@ router.post('/screenshotsAsBase64Strings', bodyParser, async function (
   request: express.Request,
   response: express.Response
 ) {
-  console.log(request.body.url);
-  const urlArray = getValidatedUrls(request.body.url);
-  console.log(urlArray);
-
-  var resultObject = {};
-  resultObject['images'] = [];
-
   try {
+    console.log(request.body.url);
+    const urlArray = getValidatedUrls(request.body.url);
+    console.log(urlArray);
+
+    var resultObject = {};
+    resultObject['images'] = [];
+
     for (var i = 0; i < urlArray.length; i++) {
       //If no. of urls is equal to 1, no need to append number to file name
       var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
@@ -240,11 +247,7 @@ async function generateScreenshots(
   pathToFullPageScreenshot?,
   pathToPhoneScreenshot?
 ) {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox'],
-  });
-
+  const browser = await launchBrowser();
   const page = await browser.newPage();
 
   try {
@@ -270,17 +273,25 @@ async function generateScreenshots(
 }
 
 async function createTemporaryFile(filename, extension) {
-  return tmp.tmpNameSync({
-    prefix: filename,
-    postfix: extension,
-  });
+  try {
+    return tmp.tmpNameSync({
+      prefix: filename,
+      postfix: extension,
+    });
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 async function getDominantColors(pathToFullPageScreenshot) {
-  console.log(pathToFullPageScreenshot);
-  var palette = await Vibrant.from(pathToFullPageScreenshot).getPalette();
+  try {
+    console.log(pathToFullPageScreenshot);
+    var palette = await Vibrant.from(pathToFullPageScreenshot).getPalette();
 
-  return palette;
+    return palette;
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 async function getScreenshotDetails(pathToImage) {
