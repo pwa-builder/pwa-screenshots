@@ -4,6 +4,7 @@
   "description": "",
   "main": "dist/app.js",
   "scripts": {
+    "build": "tsc",
     "start": "tsc && npx nodemon dist/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -29,6 +30,7 @@
     "typescript": "^3.8.3"
   },
   "dependencies": {
+    "@types/puppeteer": "^5.4.3",
     "express": "^4.17.1"
   }
 }
