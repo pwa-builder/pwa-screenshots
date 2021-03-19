@@ -4,8 +4,8 @@
   "description": "",
   "main": "dist/app.js",
   "scripts": {
-    "build": "tsc",
-    "start": "tsc && npx nodemon dist/app.js",
+    "build": "tsc --project tsconfig.json",
+    "start": "npm run build && npx nodemon dist/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
