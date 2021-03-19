@@ -1,14 +1,15 @@
-import express, { json } from 'express';
-import * as path from 'path';
-const fs = require('fs');
-const tmp = require('tmp');
-const archiver = require('archiver');
-const router = express.Router();
-const puppeteer = require('puppeteer');
-const iPhone = puppeteer.devices['iPhone 6'];
-const Vibrant = require('node-vibrant');
-const bodyParser = require('body-parser').json({ limit: '20mb' });
+import fs from 'fs';
+import express from 'express';
+import puppeteer from 'puppeteer';
+import tmp from 'tmp';
+import archiver from 'archiver';
+import Vibrant from 'node-vibrant';
+
 const sizeOf = require('image-size');
+const iPhone = puppeteer.devices['iPhone 6'];
+const router = express.Router();
+const bodyParser = require('body-parser').json({ limit: '20mb' });
+
 router.get('/getColorScheme', async function (
   request: express.Request,
   response: express.Response
@@ -94,7 +95,7 @@ router.post('/downloadScreenshotsZipFile', bodyParser, async function (
       'screenshot' + (i + 1).toString(),
       '.png'
     );
-    fs.writeFileSync(file, '.png', buffer);
+    fs.writeFileSync(file, '.png', buffer.toString('utf8'));
     archive.file(file, {
       name: 'screenshot' + (i + 1) + '.png',
     });
@@ -233,6 +234,7 @@ function validateUrl(url: string) {
   }
   return url;
 }
+
 async function generateScreenshots(
   url,
   pathToFullPageScreenshot?,
@@ -266,12 +268,14 @@ async function generateScreenshots(
   console.log(await page.title());
   await browser.close();
 }
+
 async function createTemporaryFile(filename, extension) {
   return tmp.tmpNameSync({
     prefix: filename,
     postfix: extension,
   });
 }
+
 async function getDominantColors(pathToFullPageScreenshot) {
   console.log(pathToFullPageScreenshot);
   var palette = await Vibrant.from(pathToFullPageScreenshot).getPalette();
@@ -280,21 +284,30 @@ async function getDominantColors(pathToFullPageScreenshot) {
 }
 
 async function getScreenshotDetails(pathToImage) {
-  console.log(pathToImage);
-  let dims = await getImageDims(pathToImage);
-  console.log('DIMS', dims);
-  let buff = fs.readFileSync(pathToImage);
-  let base64data = 'data:image/png;base64, ' + buff.toString('base64');
-  return {
-    src: base64data,
-    sizes: dims.width + 'x' + dims.height,
-    type: 'image/' + dims.type,
-  };
+  try {
+    console.log(pathToImage);
+    let dims = await getImageDims(pathToImage);
+    console.log('DIMS', dims);
+    let buff = fs.readFileSync(pathToImage);
+    let base64data = 'data:image/png;base64, ' + buff.toString('base64');
+    return {
+      src: base64data,
+      sizes: dims.width + 'x' + dims.height,
+      type: 'image/' + dims.type,
+    };
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 async function getImageDims(pathToImage) {
-  var dimensions = await sizeOf(pathToImage);
-  console.log(dimensions);
+  var dimensions;
+  try {
+    dimensions = await sizeOf(pathToImage);
+    console.log(dimensions);
+  } catch (e) {
+    console.error(e);
+  }
   return dimensions;
 }
 
