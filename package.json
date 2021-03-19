@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/app.js",
+  "engines": {
+    "node": "^12.20.1"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "start": "npm run build && npx nodemon dist/app.js",
