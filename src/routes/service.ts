@@ -252,29 +252,33 @@ async function generateScreenshots(
   pathToFullPageScreenshot?,
   pathToPhoneScreenshot?
 ) {
-  const browser = await launchBrowser();
-  const page = await browser.newPage();
-
   try {
-    await page.setViewport({ width: 1280, height: 800 });
-    await page.setDefaultNavigationTimeout(120000);
-    await page.goto(url, { waitUntil: 'networkidle2' });
-  } catch (err) {
-    console.log('Check URL here', err);
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    const browser = await launchBrowser();
+    const page = await browser.newPage();
+
+    try {
+      await page.setViewport({ width: 1280, height: 800 });
+      await page.setDefaultNavigationTimeout(120000);
+      await page.goto(url, { waitUntil: 'networkidle2' });
+    } catch (err) {
+      console.log('Check URL here', err);
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+    }
+    if (pathToFullPageScreenshot !== undefined) {
+      console.log('Full page not undefined');
+      await page.screenshot({ path: pathToFullPageScreenshot, fullPage: false });
+    }
+    if (pathToPhoneScreenshot !== undefined) {
+      console.log('Mobile not undefined');
+      await page.emulate(iPhone);
+      await page.goto(url, { waitUntil: 'networkidle2' });
+      await page.screenshot({ path: pathToPhoneScreenshot, fullPage: false });
+    }
+    console.log(await page.title());
+    await browser.close();
+  } catch (e) {
+    console.error(e);
   }
-  if (pathToFullPageScreenshot !== undefined) {
-    console.log('Full page not undefined');
-    await page.screenshot({ path: pathToFullPageScreenshot, fullPage: false });
-  }
-  if (pathToPhoneScreenshot !== undefined) {
-    console.log('Mobile not undefined');
-    await page.emulate(iPhone);
-    await page.goto(url, { waitUntil: 'networkidle2' });
-    await page.screenshot({ path: pathToPhoneScreenshot, fullPage: false });
-  }
-  console.log(await page.title());
-  await browser.close();
 }
 
 async function createTemporaryFile(filename, extension) {
