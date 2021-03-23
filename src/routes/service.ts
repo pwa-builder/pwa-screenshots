@@ -124,13 +124,13 @@ router.post(
   '/screenshotsAsBase64StringWithOptions',
   async function (request: express.Request, response: express.Response) {
     try {
-      var screenshotObjects = request.body;
+      const screenshotObjects = request.body;
+      const resultObject = {
+        images: []
+      };
       console.log(screenshotObjects);
-      var resultObject = {};
-      resultObject['images'] = [];
-
       for (var i = 0; i < screenshotObjects.length; i++) {
-        var pageNumber = screenshotObjects.length > 1 ? (i + 1).toString() : '';
+        const pageNumber = screenshotObjects.length > 1 ? (i + 1).toString() : '';
         const screenshotFullScreen = screenshotObjects[i].desktop
           ? await createTemporaryFile(
               'screenshotFullScreen' + pageNumber,
@@ -178,9 +178,9 @@ router.post('/screenshotsAsBase64Strings',
   try {
     const urlArray = getValidatedUrls(request.body.url);
     console.log(urlArray);
-
-    var resultObject = {};
-    resultObject['images'] = [];
+    const resultObject = {
+      images: []
+    };
 
     for (var i = 0; i < urlArray.length; i++) {
       //If no. of urls is equal to 1, no need to append number to file name
