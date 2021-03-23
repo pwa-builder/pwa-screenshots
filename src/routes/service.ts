@@ -9,21 +9,25 @@ import { launchBrowser } from '../utils/puppeteer';
 const sizeOf = require('image-size');
 const iPhone = puppeteer.devices['iPhone 6'];
 const router = express.Router();
-const bodyParser = require('body-parser').json({ limit: '20mb' });
 
 router.get('/getColorScheme', async function (
   request: express.Request,
   response: express.Response
 ) {
-  const tempFilename = await createTemporaryFile('screenshot', '.png');
-  await generateScreenshots(request.query.url, tempFilename, undefined);
-  var palette = await getDominantColors(tempFilename);
-  console.log(palette);
-  response.setHeader('Content-Type', 'application/json');
-  response.end(JSON.stringify(palette));
+  try {
+    const tempFilename = await createTemporaryFile('screenshot', '.png');
+    await generateScreenshots(request.query.url, tempFilename, undefined);
+    var palette = await getDominantColors(tempFilename);
+    console.log(palette);
+    response.setHeader('Content-Type', 'application/json');
+    response.end(JSON.stringify(palette));
+  } catch (e) {
+    console.error(e);
+    response.status(500).send('Error getting color scheme: ' + e);
+  }
 });
 
-router.post('/post', bodyParser, async function (
+router.post('/post', async function (
   request: express.Request,
   response: express.Response
 ) {
@@ -77,7 +81,7 @@ router.post('/post', bodyParser, async function (
 });
 
 //Returns Zipped file of screenshots
-router.post('/downloadScreenshotsZipFile', bodyParser, async function (
+router.post('/downloadScreenshotsZipFile', async function (
   request: express.Request,
   response: express.Response
 ) {
@@ -92,8 +96,10 @@ router.post('/downloadScreenshotsZipFile', bodyParser, async function (
     archive.pipe(output);
     var screenshotImages = request.body;
 
+    console.log(screenshotImages);
+
     for (var i = 0; i < screenshotImages.length; i++) {
-      let buffer = new Buffer(screenshotImages[i].src);
+      let buffer = Buffer.from(screenshotImages[i].src);
       let file = await createTemporaryFile(
         'screenshot' + (i + 1).toString(),
         '.png'
@@ -116,7 +122,6 @@ router.post('/downloadScreenshotsZipFile', bodyParser, async function (
 //For standalone tool
 router.post(
   '/screenshotsAsBase64StringWithOptions',
-  bodyParser,
   async function (request: express.Request, response: express.Response) {
     try {
       var screenshotObjects = request.body;
@@ -165,12 +170,12 @@ router.post(
 );
 
 //Return screenshots as an array of Base64 encoded strings for PWABuilder website
-router.post('/screenshotsAsBase64Strings', bodyParser, async function (
+router.post('/screenshotsAsBase64Strings',
+  async function (
   request: express.Request,
   response: express.Response
 ) {
   try {
-    console.log(request.body.url);
     const urlArray = getValidatedUrls(request.body.url);
     console.log(urlArray);
 
