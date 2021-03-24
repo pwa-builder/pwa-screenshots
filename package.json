@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/app.js",
+  "engines": {
+    "node": "12.19.0"
+  },
   "scripts": {
-    "start": "tsc && npx nodemon dist/app.js",
+    "build": "tsc --project tsconfig.json",
+    "start": "npm run build && npx nodemon dist/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -13,18 +17,21 @@
   "devDependencies": {
     "@types/express": "^4.17.6",
     "archiver": "^4.0.1",
-    "body-parser": "",
     "cors": "^2.8.5",
-    "fs": "",
+    "eslint": "^7.17.0",
+    "eslint-config-prettier": "^7.1.0",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
     "image-size": "^0.8.3",
     "node-vibrant": "^3.1.5",
     "nodemon": "^2.0.4",
+    "prettier": "^2.2.1",
     "puppeteer": "^3.0.4",
-    "tmp": "",
-    "tslint": "^6.1.2",
     "typescript": "^3.8.3"
   },
   "dependencies": {
-    "express": "^4.17.1"
+    "@types/puppeteer": "^5.4.3",
+    "express": "^4.17.1",
+    "tmp": "^0.2.1"
   }
 }

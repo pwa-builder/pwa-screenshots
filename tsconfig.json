@@ -1,11 +1,23 @@
 {
-    "compilerOptions": {
-      "module": "commonjs",
-      "esModuleInterop": true,
-      "target": "es6",
-      "moduleResolution": "node",
-      "sourceMap": true,
-      "outDir": "dist"
-    },
-    "lib": ["es2015"]
-  }
+  "compilerOptions": {
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "target": "es6",
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "outDir": "dist"
+  },
+  "lib": ["es2015"],
+  "strict": true,
+  "noUnusedLocals": true,
+  "noUnusedParameters": true,
+  "noImplicitReturns": true,
+  "noFallthroughCasesInSwitch": true,
+  "forceConsistentCasingInFileNames": true,
+  "noImplicitAny": true,
+  "noImplicitThis": true,
+  "skipLibCheck": true,
+  "experimentalDecorators": true,
+  "allowSyntheticDefaultImports": true,
+  "exclude": ["node_modules"]
+}

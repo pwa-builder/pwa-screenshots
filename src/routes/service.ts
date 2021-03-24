@@ -1,42 +1,49 @@
-import express, { json } from 'express';
-import * as path from 'path';
-const fs = require('fs');
-const tmp = require('tmp');
-const archiver = require('archiver');
-const router = express.Router();
-const puppeteer = require('puppeteer');
-const iPhone = puppeteer.devices['iPhone 6'];
-const Vibrant = require('node-vibrant');
-const bodyParser = require('body-parser').json({ limit: '20mb' });
+import fs from 'fs';
+import express from 'express';
+import puppeteer from 'puppeteer';
+import tmp from 'tmp';
+import archiver from 'archiver';
+import Vibrant from 'node-vibrant';
+import { launchBrowser } from '../utils/puppeteer';
+
 const sizeOf = require('image-size');
+const iPhone = puppeteer.devices['iPhone 6'];
+const router = express.Router();
+
 router.get('/getColorScheme', async function (
   request: express.Request,
   response: express.Response
 ) {
-  const tempFilename = await createTemporaryFile('screenshot', '.png');
-  await generateScreenshots(request.query.url, tempFilename, undefined);
-  var palette = await getDominantColors(tempFilename);
-  console.log(palette);
-  response.setHeader('Content-Type', 'application/json');
-  response.end(JSON.stringify(palette));
+  try {
+    const tempFilename = await createTemporaryFile('screenshot', '.png');
+    await generateScreenshots(request.query.url, tempFilename, undefined);
+    var palette = await getDominantColors(tempFilename);
+    console.log(palette);
+    response.setHeader('Content-Type', 'application/json');
+    response.end(JSON.stringify(palette));
+  } catch (e) {
+    console.error(e);
+    response.status(500).send('Error getting color scheme: ' + e);
+  }
 });
 
-router.post('/post', bodyParser, async function (
+router.post('/post', async function (
   request: express.Request,
   response: express.Response
 ) {
-  console.log(request.body.url);
-  const urlArray = getValidatedUrls(request.body.url);
-  console.log(urlArray);
-  const archive = archiver('zip', {
-    zlib: { level: 9 }, // Sets the compression level.
-  });
-  //Create the zipped file
-  const zippedFilename = await createTemporaryFile('screenshots', '.zip');
-  //Create an output write stream
-  const output = fs.createWriteStream(zippedFilename);
-  archive.pipe(output);
   try {
+    console.log(request.body.url);
+    const urlArray = getValidatedUrls(request.body.url);
+    console.log(urlArray);
+    const archive = archiver('zip', {
+      zlib: { level: 9 }, // Sets the compression level.
+    });
+    //Create the zipped file
+    const zippedFilename = await createTemporaryFile('screenshots', '.zip');
+    //Create an output write stream
+    const output = fs.createWriteStream(zippedFilename);
+    archive.pipe(output);
+
     for (var i = 0; i < urlArray.length; i++) {
       //If no. of urls is equal to 1, no need to append number to file name
       var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
@@ -74,50 +81,56 @@ router.post('/post', bodyParser, async function (
 });
 
 //Returns Zipped file of screenshots
-router.post('/downloadScreenshotsZipFile', bodyParser, async function (
+router.post('/downloadScreenshotsZipFile', async function (
   request: express.Request,
   response: express.Response
 ) {
-  const archive = archiver('zip', {
-    zlib: { level: 9 }, // Sets the compression level.
-  });
-  //Create the zipped file
-  const zippedFilename = await createTemporaryFile('screenshots', '.zip');
-  //Create an output write stream
-  const output = fs.createWriteStream(zippedFilename);
-  archive.pipe(output);
-  var screenshotImages = request.body;
-
-  for (var i = 0; i < screenshotImages.length; i++) {
-    let buffer = new Buffer(screenshotImages[i].src);
-    let file = await createTemporaryFile(
-      'screenshot' + (i + 1).toString(),
-      '.png'
-    );
-    fs.writeFileSync(file, '.png', buffer);
-    archive.file(file, {
-      name: 'screenshot' + (i + 1) + '.png',
+  try {
+      const archive = archiver('zip', {
+      zlib: { level: 9 }, // Sets the compression level.
     });
+    //Create the zipped file
+    const zippedFilename = await createTemporaryFile('screenshots', '.zip');
+    //Create an output write stream
+    const output = fs.createWriteStream(zippedFilename);
+    archive.pipe(output);
+    var screenshotImages = request.body;
+
+    console.log(screenshotImages);
+
+    for (var i = 0; i < screenshotImages.length; i++) {
+      let buffer = Buffer.from(screenshotImages[i].src);
+      let file = await createTemporaryFile(
+        'screenshot' + (i + 1).toString(),
+        '.png'
+      );
+      fs.writeFileSync(file, '.png', buffer.toString('utf8'));
+      archive.file(file, {
+        name: 'screenshot' + (i + 1) + '.png',
+      });
+    }
+    output.on('close', () => {
+      response.setHeader('Content-Disposition', 'filename="screenshots.zip"');
+      response.sendFile(zippedFilename);
+    });
+    archive.finalize();
+  } catch (e) {
+    console.error(e);
   }
-  output.on('close', () => {
-    response.setHeader('Content-Disposition', 'filename="screenshots.zip"');
-    response.sendFile(zippedFilename);
-  });
-  archive.finalize();
 });
 
 //For standalone tool
 router.post(
   '/screenshotsAsBase64StringWithOptions',
-  bodyParser,
   async function (request: express.Request, response: express.Response) {
-    var screenshotObjects = request.body;
-    console.log(screenshotObjects);
-    var resultObject = {};
-    resultObject['images'] = [];
     try {
+      const screenshotObjects = request.body;
+      const resultObject = {
+        images: []
+      };
+      console.log(screenshotObjects);
       for (var i = 0; i < screenshotObjects.length; i++) {
-        var pageNumber = screenshotObjects.length > 1 ? (i + 1).toString() : '';
+        const pageNumber = screenshotObjects.length > 1 ? (i + 1).toString() : '';
         const screenshotFullScreen = screenshotObjects[i].desktop
           ? await createTemporaryFile(
               'screenshotFullScreen' + pageNumber,
@@ -157,18 +170,18 @@ router.post(
 );
 
 //Return screenshots as an array of Base64 encoded strings for PWABuilder website
-router.post('/screenshotsAsBase64Strings', bodyParser, async function (
+router.post('/screenshotsAsBase64Strings',
+  async function (
   request: express.Request,
   response: express.Response
 ) {
-  console.log(request.body.url);
-  const urlArray = getValidatedUrls(request.body.url);
-  console.log(urlArray);
-
-  var resultObject = {};
-  resultObject['images'] = [];
-
   try {
+    const urlArray = getValidatedUrls(request.body.url);
+    console.log(urlArray);
+    const resultObject = {
+      images: []
+    };
+
     for (var i = 0; i < urlArray.length; i++) {
       //If no. of urls is equal to 1, no need to append number to file name
       var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
@@ -233,68 +246,88 @@ function validateUrl(url: string) {
   }
   return url;
 }
+
 async function generateScreenshots(
   url,
   pathToFullPageScreenshot?,
   pathToPhoneScreenshot?
 ) {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox'],
-  });
-
-  const page = await browser.newPage();
-
   try {
-    await page.setViewport({ width: 1280, height: 800 });
-    await page.setDefaultNavigationTimeout(120000);
-    await page.goto(url, { waitUntil: 'networkidle2' });
-  } catch (err) {
-    console.log('Check URL here', err);
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
-  }
-  if (pathToFullPageScreenshot !== undefined) {
-    console.log('Full page not undefined');
-    await page.screenshot({ path: pathToFullPageScreenshot, fullPage: false });
-  }
-  if (pathToPhoneScreenshot !== undefined) {
-    console.log('Mobile not undefined');
-    await page.emulate(iPhone);
-    await page.goto(url, { waitUntil: 'networkidle2' });
-    await page.screenshot({ path: pathToPhoneScreenshot, fullPage: false });
-  }
-  console.log(await page.title());
-  await browser.close();
-}
-async function createTemporaryFile(filename, extension) {
-  return tmp.tmpNameSync({
-    prefix: filename,
-    postfix: extension,
-  });
-}
-async function getDominantColors(pathToFullPageScreenshot) {
-  console.log(pathToFullPageScreenshot);
-  var palette = await Vibrant.from(pathToFullPageScreenshot).getPalette();
+    const browser = await launchBrowser();
+    const page = await browser.newPage();
 
-  return palette;
+    try {
+      await page.setViewport({ width: 1280, height: 800 });
+      await page.setDefaultNavigationTimeout(120000);
+      await page.goto(url, { waitUntil: 'networkidle2' });
+    } catch (err) {
+      console.log('Check URL here', err);
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+    }
+    if (pathToFullPageScreenshot !== undefined) {
+      console.log('Full page not undefined');
+      await page.screenshot({ path: pathToFullPageScreenshot, fullPage: false });
+    }
+    if (pathToPhoneScreenshot !== undefined) {
+      console.log('Mobile not undefined');
+      await page.emulate(iPhone);
+      await page.goto(url, { waitUntil: 'networkidle2' });
+      await page.screenshot({ path: pathToPhoneScreenshot, fullPage: false });
+    }
+    console.log(await page.title());
+    await browser.close();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function createTemporaryFile(filename, extension) {
+  try {
+    return tmp.tmpNameSync({
+      prefix: filename,
+      postfix: extension,
+    });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function getDominantColors(pathToFullPageScreenshot) {
+  try {
+    console.log(pathToFullPageScreenshot);
+    var palette = await Vibrant.from(pathToFullPageScreenshot).getPalette();
+
+    return palette;
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 async function getScreenshotDetails(pathToImage) {
-  console.log(pathToImage);
-  let dims = await getImageDims(pathToImage);
-  console.log('DIMS', dims);
-  let buff = fs.readFileSync(pathToImage);
-  let base64data = 'data:image/png;base64, ' + buff.toString('base64');
-  return {
-    src: base64data,
-    sizes: dims.width + 'x' + dims.height,
-    type: 'image/' + dims.type,
-  };
+  try {
+    console.log(pathToImage);
+    let dims = await getImageDims(pathToImage);
+    console.log('DIMS', dims);
+    let buff = fs.readFileSync(pathToImage);
+    let base64data = 'data:image/png;base64, ' + buff.toString('base64');
+    return {
+      src: base64data,
+      sizes: dims.width + 'x' + dims.height,
+      type: 'image/' + dims.type,
+    };
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 async function getImageDims(pathToImage) {
-  var dimensions = await sizeOf(pathToImage);
-  console.log(dimensions);
+  var dimensions;
+  try {
+    dimensions = await sizeOf(pathToImage);
+    console.log(dimensions);
+  } catch (e) {
+    console.error(e);
+  }
   return dimensions;
 }
 
