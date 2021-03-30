@@ -1,10 +1,10 @@
 import fs from 'fs';
 import express from 'express';
 import puppeteer from 'puppeteer';
-import tmp from 'tmp';
 import archiver from 'archiver';
 import Vibrant from 'node-vibrant';
 import { launchBrowser } from '../utils/puppeteer';
+import { createTemporaryFile, scheduleTemporaryFileDeletion } from '../utils/temp';
 
 const sizeOf = require('image-size');
 const iPhone = puppeteer.devices['iPhone 6'];
@@ -14,9 +14,11 @@ router.get('/getColorScheme', async function (
   request: express.Request,
   response: express.Response
 ) {
+  let tempFilename: string;
   try {
-    const tempFilename = await createTemporaryFile('screenshot', '.png');
-    await generateScreenshots(request.query.url, tempFilename, undefined);
+    tempFilename = await createTemporaryFile('screenshot', '.png');
+    const url: string = request.query.url as string;
+    await generateScreenshots(url, tempFilename, undefined);
     var palette = await getDominantColors(tempFilename);
     console.log(palette);
     response.setHeader('Content-Type', 'application/json');
@@ -24,6 +26,10 @@ router.get('/getColorScheme', async function (
   } catch (e) {
     console.error(e);
     response.status(500).send('Error getting color scheme: ' + e);
+  } finally {
+    if (tempFilename) {
+      scheduleTemporaryFileDeletion(tempFilename);
+    }
   }
 });
 
@@ -31,6 +37,8 @@ router.post('/post', async function (
   request: express.Request,
   response: express.Response
 ) {
+
+  let zippedFilename: string;
   try {
     console.log(request.body.url);
     const urlArray = getValidatedUrls(request.body.url);
@@ -39,7 +47,12 @@ router.post('/post', async function (
       zlib: { level: 9 }, // Sets the compression level.
     });
     //Create the zipped file
-    const zippedFilename = await createTemporaryFile('screenshots', '.zip');
+    zippedFilename = await createTemporaryFile('screenshots', '.zip');
+
+    if (!zippedFilename) {
+      throw new Error("unable to create temporary file");
+    }
+
     //Create an output write stream
     const output = fs.createWriteStream(zippedFilename);
     archive.pipe(output);
@@ -77,6 +90,10 @@ router.post('/post', async function (
   } catch (err) {
     console.log('Error generating screenshots', err);
     response.status(500).send('Error generating screenshots: ' + err);
+  } finally {
+    if (zippedFilename) {
+      scheduleTemporaryFileDeletion(zippedFilename);
+    }
   }
 });
 
@@ -85,14 +102,15 @@ router.post('/downloadScreenshotsZipFile', async function (
   request: express.Request,
   response: express.Response
 ) {
+  let zippedFileName: string;
   try {
       const archive = archiver('zip', {
       zlib: { level: 9 }, // Sets the compression level.
     });
     //Create the zipped file
-    const zippedFilename = await createTemporaryFile('screenshots', '.zip');
+    zippedFileName = await createTemporaryFile('screenshots', '.zip');
     //Create an output write stream
-    const output = fs.createWriteStream(zippedFilename);
+    const output = fs.createWriteStream(zippedFileName);
     archive.pipe(output);
     var screenshotImages = request.body;
 
@@ -111,11 +129,15 @@ router.post('/downloadScreenshotsZipFile', async function (
     }
     output.on('close', () => {
       response.setHeader('Content-Disposition', 'filename="screenshots.zip"');
-      response.sendFile(zippedFilename);
+      response.sendFile(zippedFileName);
     });
     archive.finalize();
   } catch (e) {
     console.error(e);
+  } finally {
+    if (zippedFileName) {
+      scheduleTemporaryFileDeletion(zippedFileName)
+    }
   }
 });
 
@@ -123,6 +145,8 @@ router.post('/downloadScreenshotsZipFile', async function (
 router.post(
   '/screenshotsAsBase64StringWithOptions',
   async function (request: express.Request, response: express.Response) {
+
+    const screenshotsCreated = [];
     try {
       const screenshotObjects = request.body;
       const resultObject = {
@@ -137,6 +161,8 @@ router.post(
               '.png'
             )
           : undefined;
+
+        screenshotsCreated.push(screenshotFullScreen);
 
         const screenshotPhone = screenshotObjects[i].mobile
           ? await createTemporaryFile('screenshotPhone' + pageNumber, '.png')
@@ -165,6 +191,9 @@ router.post(
     } catch (err) {
       console.log('Error generating screenshots', err);
       response.status(500).send('Error generating screenshots: ' + err);
+    } finally {
+      const cleanups = screenshotsCreated.map(item => scheduleTemporaryFileDeletion(item))
+      Promise.all(cleanups);
     }
   }
 );
@@ -174,7 +203,10 @@ router.post('/screenshotsAsBase64Strings',
   async function (
   request: express.Request,
   response: express.Response
-) {
+  ) {
+
+  let screenshotFullScreen;
+  let screenshotPhone;
   try {
     const urlArray = getValidatedUrls(request.body.url);
     console.log(urlArray);
@@ -185,11 +217,11 @@ router.post('/screenshotsAsBase64Strings',
     for (var i = 0; i < urlArray.length; i++) {
       //If no. of urls is equal to 1, no need to append number to file name
       var pageNumber = urlArray.length > 1 ? (i + 1).toString() : '';
-      const screenshotFullScreen = await createTemporaryFile(
+      screenshotFullScreen = await createTemporaryFile(
         'screenshotFullScreen' + pageNumber,
         '.png'
       );
-      const screenshotPhone = await createTemporaryFile(
+      screenshotPhone = await createTemporaryFile(
         'screenshotPhone' + pageNumber,
         '.png'
       );
@@ -228,6 +260,14 @@ router.post('/screenshotsAsBase64Strings',
   } catch (err) {
     console.log('Error generating screenshots', err);
     response.status(500).send('Error generating screenshots: ' + err);
+  } finally {
+    if (screenshotFullScreen) {
+      scheduleTemporaryFileDeletion(screenshotFullScreen);
+    }
+
+    if (screenshotPhone) {
+      scheduleTemporaryFileDeletion(screenshotPhone);
+    }
   }
 });
 
@@ -248,9 +288,9 @@ function validateUrl(url: string) {
 }
 
 async function generateScreenshots(
-  url,
-  pathToFullPageScreenshot?,
-  pathToPhoneScreenshot?
+  url: string,
+  pathToFullPageScreenshot: string,
+  pathToPhoneScreenshot: string
 ) {
   try {
     const browser = await launchBrowser();
@@ -276,17 +316,6 @@ async function generateScreenshots(
     }
     console.log(await page.title());
     await browser.close();
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-async function createTemporaryFile(filename, extension) {
-  try {
-    return tmp.tmpNameSync({
-      prefix: filename,
-      postfix: extension,
-    });
   } catch (e) {
     console.error(e);
   }
