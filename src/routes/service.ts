@@ -28,7 +28,7 @@ router.get('/getColorScheme', async function (
     response.status(500).send('Error getting color scheme: ' + e);
   } finally {
     if (tempFilename) {
-      await scheduleTemporaryFileDeletion(tempFilename);
+      scheduleTemporaryFileDeletion(tempFilename);
     }
   }
 });
@@ -91,7 +91,9 @@ router.post('/post', async function (
     console.log('Error generating screenshots', err);
     response.status(500).send('Error generating screenshots: ' + err);
   } finally {
-    await scheduleTemporaryFileDeletion(zippedFilename);
+    if (zippedFilename) {
+      scheduleTemporaryFileDeletion(zippedFilename);
+    }
   }
 });
 
@@ -133,7 +135,9 @@ router.post('/downloadScreenshotsZipFile', async function (
   } catch (e) {
     console.error(e);
   } finally {
-    await scheduleTemporaryFileDeletion(zippedFileName)
+    if (zippedFileName) {
+      scheduleTemporaryFileDeletion(zippedFileName)
+    }
   }
 });
 
@@ -189,7 +193,7 @@ router.post(
       response.status(500).send('Error generating screenshots: ' + err);
     } finally {
       const cleanups = screenshotsCreated.map(item => scheduleTemporaryFileDeletion(item))
-      await Promise.all(cleanups);
+      Promise.all(cleanups);
     }
   }
 );
@@ -258,11 +262,11 @@ router.post('/screenshotsAsBase64Strings',
     response.status(500).send('Error generating screenshots: ' + err);
   } finally {
     if (screenshotFullScreen) {
-      await scheduleTemporaryFileDeletion(screenshotFullScreen);
+      scheduleTemporaryFileDeletion(screenshotFullScreen);
     }
 
     if (screenshotPhone) {
-      await scheduleTemporaryFileDeletion(screenshotPhone);
+      scheduleTemporaryFileDeletion(screenshotPhone);
     }
   }
 });
