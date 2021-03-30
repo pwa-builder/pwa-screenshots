@@ -33,7 +33,7 @@ export async function createTemporaryDir(dirName: string): Promise<string | unde
 export async function scheduleTemporaryFileDeletion(tmpName: string | undefined) {
   try {
     if (tmpName) {
-      const fn = () => del([normalizePath(tmpName)]);
+      const fn = async () => await del([normalizePath(tmpName)]);
       setTimeout(fn, timeout);
     }
   } catch (e) {
@@ -44,7 +44,7 @@ export async function scheduleTemporaryFileDeletion(tmpName: string | undefined)
 export async function scheduleTemporaryDirDeletion(dirPath: string | undefined) {
   try {
     if (dirPath) {
-      const fn = () => del([normalizePath(dirPath)], { force: true });
+      const fn = async () => await del([normalizePath(dirPath)], { force: true });
       setTimeout(fn, timeout);
     }
   } catch (e) {
