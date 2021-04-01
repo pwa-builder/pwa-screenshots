@@ -18,7 +18,11 @@ router.get('/getColorScheme', async function (
   try {
     tempFilename = await createTemporaryFile('screenshot', '.png');
     const url: string = request.query.url as string;
-    await generateScreenshots(url, tempFilename, undefined);
+    const generated = await generateScreenshots(url, tempFilename, undefined);
+    if (!generated) {
+      throw new Error("puppeteer failed to generate screenshot");
+    }
+
     var palette = await getDominantColors(tempFilename);
     console.log(palette);
     response.setHeader('Content-Type', 'application/json');
@@ -69,11 +73,15 @@ router.post('/post', async function (
         '.png'
       );
       //Generate screenshots for URL
-      await generateScreenshots(
+      const generated = await generateScreenshots(
         urlArray[i],
         screenshotFullScreen,
         screenshotPhone
       );
+      if (!generated) {
+        throw new Error("puppeteer failed to generate screenshot");
+      }
+
       //Add generated files to zipped file
       archive.file(screenshotFullScreen, {
         name: 'screenshotFullScreen' + pageNumber + '.png',
@@ -169,11 +177,15 @@ router.post(
           : undefined;
         screenshotObjects[i].url = await validateUrl(screenshotObjects[i].url);
         console.log(screenshotFullScreen, screenshotPhone);
-        await generateScreenshots(
+        const generated = await generateScreenshots(
           screenshotObjects[i].url,
           screenshotFullScreen,
           screenshotPhone
         );
+        if (!generated) {
+          throw new Error("puppeteer failed to generate screenshot");
+        }
+
         console.log('TYPE OF', typeof screenshotObjects[i].desktop);
         if (screenshotObjects[i].desktop) {
           resultObject['images'].push(
@@ -226,11 +238,15 @@ router.post('/screenshotsAsBase64Strings',
         '.png'
       );
       //Generate screenshots for URL
-      await generateScreenshots(
+      const generated = await generateScreenshots(
         urlArray[i],
         screenshotFullScreen,
         screenshotPhone
       );
+      if (!generated) {
+        throw new Error("puppeteer failed to generate screenshot");
+      }
+
       let screenshotFullScreenDims = await getImageDims(screenshotFullScreen);
       let screenshotPhoneDims = await getImageDims(screenshotPhone);
       let buffFullScreen = fs.readFileSync(screenshotFullScreen);
@@ -291,7 +307,7 @@ async function generateScreenshots(
   url: string,
   pathToFullPageScreenshot: string,
   pathToPhoneScreenshot: string
-) {
+): Promise<boolean> {
   try {
     const browser = await launchBrowser();
     const page = await browser.newPage();
@@ -316,9 +332,13 @@ async function generateScreenshots(
     }
     console.log(await page.title());
     await browser.close();
+
+    return true;
   } catch (e) {
     console.error(e);
   }
+
+  return false;
 }
 
 async function getDominantColors(pathToFullPageScreenshot) {
