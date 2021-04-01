@@ -9,26 +9,26 @@ EXPOSE 3000
 # CMD [ "node", "server.js" ]
 
 WORKDIR /app
-COPY . . 
+COPY . .
 
 
 
 ENV PORT 80
 RUN npm install
-RUN npm i puppeteer 
+RUN npm i puppeteer
 
 RUN apt-get update && apt-get install -yq libgconf-2-4
 
-# Install latest chrome dev package and fonts to support major 
+# Install latest chrome dev package and fonts to support major
 # charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
-# Note: this installs the necessary libs to make the bundled version 
+# Note: this installs the necessary libs to make the bundled version
 # of Chromium that Puppeteer
 # installs, work.
 RUN apt-get update && apt-get install -y wget --no-install-recommends \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
     && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
     && apt-get update \
-    && apt-get install -y google-chrome-unstable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst ttf-freefont libxtst6:i386 \
+    && apt-get install -y google-chrome-unstable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst ttf-freefont libxtst6 \
       --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get purge --auto-remove -y curl \
