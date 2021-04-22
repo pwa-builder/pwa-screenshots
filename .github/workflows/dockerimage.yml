@@ -54,7 +54,7 @@ jobs:
     build-dev-pr:
     
         runs-on: ubuntu-latest
-        if: github.ref == 'refs/heads/dev && github.event.name == 'pull_request'
+        if: github.ref == 'refs/heads/dev' && github.event.name == 'pull_request'
     
         steps:
         - uses: actions/checkout@v2
