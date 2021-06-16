@@ -10,6 +10,8 @@ const sizeOf = require('image-size');
 const iPhone = puppeteer.devices['iPhone 6'];
 const router = express.Router();
 
+router.options('/getColorScheme');
+
 router.get('/getColorScheme', async function (
   request: express.Request,
   response: express.Response
@@ -36,6 +38,8 @@ router.get('/getColorScheme', async function (
     }
   }
 });
+
+router.options('/post');
 
 router.post('/post', async function (
   request: express.Request,
@@ -106,6 +110,8 @@ router.post('/post', async function (
 });
 
 //Returns Zipped file of screenshots
+router.options('/downloadScreenshotsZipFile');
+
 router.post('/downloadScreenshotsZipFile', async function (
   request: express.Request,
   response: express.Response
@@ -150,6 +156,8 @@ router.post('/downloadScreenshotsZipFile', async function (
 });
 
 //For standalone tool
+router.options('/screenshotsAsBase64StringWithOptions');
+
 router.post(
   '/screenshotsAsBase64StringWithOptions',
   async function (request: express.Request, response: express.Response) {
@@ -211,6 +219,8 @@ router.post(
 );
 
 //Return screenshots as an array of Base64 encoded strings for PWABuilder website
+router.options('/screenshotsAsBase64Strings');
+
 router.post('/screenshotsAsBase64Strings',
   async function (
   request: express.Request,
