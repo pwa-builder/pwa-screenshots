@@ -24,7 +24,7 @@
     "eslint-plugin-node": "^11.1.0",
     "image-size": "^0.8.3",
     "node-vibrant": "^3.1.5",
-    "nodemon": "^2.0.4",
+    "nodemon": "^2.0.20",
     "prettier": "^2.2.1",
     "puppeteer": "^3.0.4",
     "typescript": "^3.8.3"
