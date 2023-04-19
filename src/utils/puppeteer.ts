@@ -4,5 +4,6 @@ export async function launchBrowser() {
   return await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox'],
+    executablePath: '/usr/bin/google-chrome'
   });
 }
