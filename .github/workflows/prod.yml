@@ -1,0 +1,38 @@
+name: Prod workflow
+
+on:
+    push:
+        branches: [ master ]
+
+    pull_request:
+        branches: [ master ]
+
+jobs:
+
+    build:
+    
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/master'
+    
+        steps:
+        - uses: actions/checkout@v2
+        - name: Build the Docker image
+          run: docker build . --file Dockerfile --tag pwabuilder.azurecr.io/pwa-screenshots:staging
+      
+        - name: Login
+          run: docker login pwabuilder.azurecr.io -u pwabuilder --password ${{secrets.azure}}
+          
+        - name: Push
+          run: docker push pwabuilder.azurecr.io/pwa-screenshots:staging
+          
+    build-prod-pr:
+    
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/master' && github.event.name == 'pull_request'
+    
+        steps:
+        - uses: actions/checkout@v2
+        - name: Build the Docker image
+          run: docker build . --file Dockerfile 
+          
+   

@@ -1,0 +1,33 @@
+name: Dev workflow
+
+on:
+    push:
+        branches: [ dev ]
+
+    pull_request:
+        branches: [ dev ]
+
+jobs:
+          
+    build:  
+        runs-on: ubuntu-latest    
+        steps:
+        - uses: actions/checkout@v2
+        - name: Build the Docker image
+          run: docker build . --file Dockerfile --tag pwabuilder.azurecr.io/pwa-screenshots:preview
+      
+        - name: Login
+          run: docker login pwabuilder.azurecr.io -u pwabuilder --password ${{secrets.azure}}
+          
+        - name: Push
+          run: docker push pwabuilder.azurecr.io/pwa-screenshots:preview
+      
+    build-dev-pr:
+    
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/dev' && github.event.name == 'pull_request'
+    
+        steps:
+        - uses: actions/checkout@v2
+        - name: Build the Docker image
+          run: docker build . --file Dockerfile 
