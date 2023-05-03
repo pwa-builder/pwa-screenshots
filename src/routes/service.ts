@@ -230,7 +230,10 @@ router.post('/screenshotsAsBase64Strings',
   let screenshotFullScreen;
   let screenshotPhone;
   try {
-    const urlArray = getValidatedUrls(request.body.url);
+    if(request.body.url === undefined || !Array.isArray(request.body.url)) {
+      throw new Error("Invalid URL, ensure you are passing an array");
+    }
+    const urlArray = getValidatedUrls(request.body.url as Array<string>);
     console.log(urlArray);
     const resultObject = {
       images: []
